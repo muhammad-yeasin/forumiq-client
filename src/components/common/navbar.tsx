@@ -24,7 +24,7 @@ export default function Navbar() {
         </div>
 
         {/* Avatar */}
-        <div className="flex-shrink-0">
+        <div className="shrink-0">
           <Avatar className="h-10 w-10">
             <AvatarFallback className="bg-primary text-primary-foreground">
               U
