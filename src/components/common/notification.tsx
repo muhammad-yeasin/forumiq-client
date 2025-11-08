@@ -13,7 +13,9 @@ import {
 import { useSocket } from "@/providers/socket-provider";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 export default function NotificationMenu() {
+  const router = useRouter();
   const [notifPage, setNotifPage] = useState(1);
   const notifLimit = 10;
   const { data: session } = useSession();
@@ -61,6 +63,11 @@ export default function NotificationMenu() {
       socket.off("new-notification", handleNewNotification);
     };
   }, [socket, userId, refetch]);
+
+  const handleNotification = (threadId: string) => {
+    router.push(`/threads/${threadId}`);
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -96,6 +103,7 @@ export default function NotificationMenu() {
                   className={`flex items-center gap-3 rounded-lg px-4 py-3 shadow-sm transition-colors cursor-pointer
                     ${notif.isRead ? "bg-muted" : "bg-primary/5"}
                   `}
+                  onClick={() => handleNotification(notif.thread)}
                 >
                   <div className="shrink-0 h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold">
                     {notif.message[0]?.toUpperCase() || "N"}
