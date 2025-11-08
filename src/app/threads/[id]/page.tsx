@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Card } from "@/components/ui/card";
@@ -13,17 +13,22 @@ import { useGetSingleThreadQuery } from "@/redux/features/threads/threads-api";
 import {
   useGetPostsQuery,
   useCreatePostMutation,
+  Post,
 } from "@/redux/features/posts/posts-api";
 import { toast } from "sonner";
 import PostCard from "./_components/post-card";
+import { useSocket } from "@/providers/socket-provider";
+import { env } from "@/config/env";
 
 export default function ThreadDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const { data: session, status } = useSession();
   const threadId = params.id as string;
+  const { socket, isConnected } = useSocket();
 
   const [replyContent, setReplyContent] = useState("");
+  const [realTimePosts, setRealTimePosts] = useState<Post[]>([]);
 
   const { data: threadData, isLoading: threadLoading } =
     useGetSingleThreadQuery(threadId);
@@ -32,13 +37,122 @@ export default function ThreadDetailsPage() {
   const [createPost, { isLoading: isCreatingPost }] = useCreatePostMutation();
 
   const thread = threadData?.data?.thread;
-  const posts = postsData?.data?.posts || [];
+
+  const posts = useMemo(() => {
+    return postsData?.data?.posts || [];
+  }, [postsData?.data?.posts]);
+
+  // Helper function to integrate real-time posts into nested structure
+  const integrateRealTimePosts = (
+    basePosts: Post[],
+    rtPosts: Post[]
+  ): Post[] => {
+    if (rtPosts.length === 0) return basePosts;
+
+    // Filter out real-time posts that already exist in base posts
+    const filteredRtPosts = rtPosts.filter((rtPost) => {
+      const existsInBase = basePosts.some((p) => {
+        const checkInTree = (post: Post): boolean => {
+          if (post._id === rtPost._id) return true;
+          if (post.children) {
+            return post.children.some(checkInTree);
+          }
+          return false;
+        };
+        return checkInTree(p);
+      });
+      return !existsInBase;
+    });
+
+    if (filteredRtPosts.length === 0) return basePosts;
+
+    // Create a deep copy of base posts to avoid mutation
+    const result = JSON.parse(JSON.stringify(basePosts)) as Post[];
+
+    // Create a map for quick lookup
+    const postMap = new Map<string, Post>();
+
+    const addToMap = (post: Post) => {
+      postMap.set(post._id, post);
+      if (post.children) {
+        post.children.forEach(addToMap);
+      }
+    };
+
+    result.forEach(addToMap);
+
+    // Add filtered real-time posts
+    filteredRtPosts.forEach((rtPost) => {
+      if (rtPost.parent) {
+        const parent = postMap.get(rtPost.parent);
+        if (parent) {
+          if (!parent.children) {
+            parent.children = [];
+          }
+          const rtPostCopy = { ...rtPost, children: [] };
+          parent.children.push(rtPostCopy);
+          postMap.set(rtPostCopy._id, rtPostCopy);
+        } else {
+          const rtPostCopy = { ...rtPost, children: [] };
+          result.push(rtPostCopy);
+          postMap.set(rtPostCopy._id, rtPostCopy);
+        }
+      } else {
+        // No parent, add as root
+        const rtPostCopy = { ...rtPost, children: [] };
+        result.push(rtPostCopy);
+        postMap.set(rtPostCopy._id, rtPostCopy);
+      }
+    });
+
+    return result;
+  };
+
+  const allPosts = useMemo(() => {
+    return integrateRealTimePosts(posts, realTimePosts);
+  }, [posts, realTimePosts]);
+
+  useEffect(() => {
+    if (!socket || !threadId) return;
+
+    socket.emit("join-thread", threadId);
+
+    const handleNewPost = (newPost: Post) => {
+      setRealTimePosts((prev) => {
+        // Check if already exists in real-time posts or fetched posts
+        const existsInRealTime = prev.some((p) => p._id === newPost._id);
+        const existsInFetched = posts.some((p) => {
+          // Check recursively in the tree
+          const checkInTree = (post: Post): boolean => {
+            if (post._id === newPost._id) return true;
+            if (post.children) {
+              return post.children.some(checkInTree);
+            }
+            return false;
+          };
+          return checkInTree(p);
+        });
+
+        if (existsInRealTime || existsInFetched) return prev;
+
+        // Only show toast for posts from other users
+        toast.success("New reply received!");
+        return [...prev, newPost];
+      });
+    };
+
+    socket.on("new-post", handleNewPost);
+
+    return () => {
+      socket.emit("leave-thread", threadId);
+      socket.off("new-post", handleNewPost);
+    };
+  }, [socket, threadId, posts]);
 
   const handleReplyClick = () => {
     if (status === "loading") return;
 
     if (!session) {
-      // Store current path for redirect after login
       if (typeof window !== "undefined") {
         localStorage.setItem("redirectUrl", window.location.pathname);
       }
@@ -123,7 +237,12 @@ export default function ThreadDetailsPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Thread Details Section */}
+      {env.NODE_ENV === "development" && (
+        <div className="mb-4 text-xs text-muted-foreground">
+          Socket: {isConnected ? "�� Connected" : "🔴 Disconnected"}
+        </div>
+      )}
+
       <Card className="border border-border bg-card p-6 mb-8">
         <h1 className="text-2xl font-bold text-foreground mb-4">
           {thread.title}
@@ -152,7 +271,6 @@ export default function ThreadDetailsPage() {
         </div>
       </Card>
 
-      {/* Reply Form Section */}
       <Card className="border border-border bg-card p-6 mb-8">
         <h2 className="text-lg font-semibold text-foreground mb-4">
           Post a Reply
@@ -188,17 +306,16 @@ export default function ThreadDetailsPage() {
         </div>
       </Card>
 
-      {/* Posts Section */}
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-4">
-          Replies ({posts.length})
+          Replies ({allPosts.length})
         </h2>
 
         {postsLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
-        ) : posts.length === 0 ? (
+        ) : allPosts.length === 0 ? (
           <Card className="border border-border bg-card p-8 text-center">
             <p className="text-muted-foreground">
               No replies yet. Be the first to reply!
@@ -206,12 +323,12 @@ export default function ThreadDetailsPage() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {posts.map((post) => (
+            {allPosts.map((post) => (
               <PostCard
                 key={post._id}
                 post={post}
                 threadId={threadId}
-                username="Anonymous" // Replace with actual user data when available
+                username="Anonymous"
                 onReply={handleNestedReply}
                 isReplying={isCreatingPost}
               />
