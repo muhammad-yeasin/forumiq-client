@@ -39,7 +39,9 @@ export interface GetThreadsResponse {
 
 export interface GetSingleThreadResponse {
   status: string;
-  data: Thread;
+  data: {
+    thread: Thread;
+  };
 }
 
 export interface GetThreadsParams {

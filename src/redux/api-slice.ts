@@ -5,6 +5,6 @@ export const apiSlice = createApi({
   baseQuery: baseQuery,
   refetchOnFocus: true,
   refetchOnReconnect: true,
-  tagTypes: ["profile", "threads"],
+  tagTypes: ["profile", "threads", "posts"],
   endpoints: () => ({}),
 });
