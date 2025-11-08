@@ -2,7 +2,9 @@ import { apiSlice } from "@/redux/api-slice";
 
 export interface Post {
   _id: string;
-  user: string;
+  user: {
+    username: string;
+  };
   thread: string;
   parent: string | null;
   content: string;

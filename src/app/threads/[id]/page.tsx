@@ -136,7 +136,7 @@ export default function ThreadDetailsPage() {
         if (existsInRealTime || existsInFetched) return prev;
 
         // Only show toast for posts from other users
-        toast.success("New reply received!");
+        // toast.success("New reply received!");
         return [...prev, newPost];
       });
     };
@@ -178,7 +178,7 @@ export default function ThreadDetailsPage() {
       }).unwrap();
 
       if (res.status === "success") {
-        toast.success("Reply posted successfully!");
+        // toast.success("Reply posted successfully!");
         setReplyContent("");
       }
     } catch (error: unknown) {
@@ -328,7 +328,7 @@ export default function ThreadDetailsPage() {
                 key={post._id}
                 post={post}
                 threadId={threadId}
-                username="Anonymous"
+                username={post.user.username}
                 onReply={handleNestedReply}
                 isReplying={isCreatingPost}
               />

@@ -124,7 +124,7 @@ export default function PostCard({
               key={childPost._id}
               post={childPost}
               threadId={threadId}
-              username="Anonymous" // Replace with actual user data
+              username={childPost.user.username}
               depth={depth + 1}
               onReply={onReply}
               isReplying={isReplying}
