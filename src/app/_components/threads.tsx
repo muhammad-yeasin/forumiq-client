@@ -25,6 +25,8 @@ function threadsReducer(
 ): ThreadsState {
   switch (action.type) {
     case "ADD_PAGE":
+      // Ignore duplicate page inserts (prevents overwriting / duplicate fetches)
+      if (state.threadPages[action.page]) return state;
       return {
         ...state,
         threadPages: {
@@ -63,10 +65,23 @@ export default function Threads() {
     { skip: !state.hasMore && page > 1 }
   );
 
-  // Aggregate all threads from all pages
-  const allThreads = Object.keys(state.threadPages)
-    .sort((a, b) => Number(a) - Number(b))
-    .flatMap((pageNum) => state.threadPages[Number(pageNum)]);
+  // Aggregate all threads from all pages in order, deduplicating by _id
+  const allThreads: Thread[] = [];
+  {
+    const seen = new Set<string>();
+    const pageNums = Object.keys(state.threadPages)
+      .map((k) => Number(k))
+      .sort((a, b) => a - b);
+    for (const p of pageNums) {
+      const pageThreads = state.threadPages[p] ?? [];
+      for (const t of pageThreads) {
+        if (!seen.has(t._id)) {
+          seen.add(t._id);
+          allThreads.push(t);
+        }
+      }
+    }
+  }
 
   // Update threads and pagination info when data changes
   useEffect(() => {
@@ -83,11 +98,13 @@ export default function Threads() {
 
   // Reset pagination when search changes
   useEffect(() => {
-    const t = window.setTimeout(() => {
+    // Schedule microtask reset to avoid sync setState in effect lint warning while
+    // still keeping behavior effectively immediate for the next render.
+    const id = window.setTimeout(() => {
       setPage(1);
       dispatch({ type: "RESET" });
     }, 0);
-    return () => window.clearTimeout(t);
+    return () => window.clearTimeout(id);
   }, [search]);
 
   // Infinite scroll using window scroll position
