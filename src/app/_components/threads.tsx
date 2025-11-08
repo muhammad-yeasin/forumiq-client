@@ -7,6 +7,7 @@ import {
   Thread,
 } from "@/redux/features/threads/threads-api";
 import { Loader2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 type ThreadsState = {
   threadPages: Record<number, Thread[]>;
@@ -15,7 +16,8 @@ type ThreadsState = {
 
 type ThreadsAction =
   | { type: "ADD_PAGE"; page: number; threads: Thread[] }
-  | { type: "SET_HAS_MORE"; hasMore: boolean };
+  | { type: "SET_HAS_MORE"; hasMore: boolean }
+  | { type: "RESET" };
 
 function threadsReducer(
   state: ThreadsState,
@@ -35,6 +37,11 @@ function threadsReducer(
         ...state,
         hasMore: action.hasMore,
       };
+    case "RESET":
+      return {
+        threadPages: {},
+        hasMore: true,
+      };
     default:
       return state;
   }
@@ -47,9 +54,12 @@ export default function Threads() {
     hasMore: true,
   });
 
+  const searchParams = useSearchParams();
+  const search = (searchParams?.get("q") as string) || "";
+
   const limit = 10;
   const { data, isLoading, isFetching } = useGetThreadsQuery(
-    { page, limit },
+    { page, limit, search },
     { skip: !state.hasMore && page > 1 }
   );
 
@@ -70,6 +80,15 @@ export default function Threads() {
       dispatch({ type: "SET_HAS_MORE", hasMore: false });
     }
   }, [data, page]);
+
+  // Reset pagination when search changes
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setPage(1);
+      dispatch({ type: "RESET" });
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [search]);
 
   // Infinite scroll using window scroll position
   useEffect(() => {

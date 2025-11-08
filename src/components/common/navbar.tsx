@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { signOut, useSession } from "next-auth/react";
@@ -13,9 +14,51 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Notification from "./notification";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 export default function Navbar() {
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [query, setQuery] = useState<string>(
+    (searchParams?.get("q") as string) || ""
+  );
+
+  // Keep input synced when url changes externally
+  useEffect(() => {
+    const urlQ = (searchParams?.get("q") as string) || "";
+    if (urlQ !== query) {
+      const t = window.setTimeout(() => setQuery(urlQ), 0);
+      return () => window.clearTimeout(t);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setQuery(e.target.value);
+  };
+
+  const updateUrlQuery = (value: string) => {
+    const params = new URLSearchParams(window.location.search ?? "");
+    if (value && value.trim() !== "") {
+      params.set("q", value.trim());
+    } else {
+      params.delete("q");
+    }
+    const search = params.toString();
+    const to = search ? `${pathname}?${search}` : `${pathname}`;
+    void router.replace(to);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      // Prevent form submission if inside a form
+      e.preventDefault();
+      updateUrlQuery(query);
+    }
+  };
 
   const handleLogout = () => {
     signOut({ redirect: true, callbackUrl: "/" });
@@ -40,6 +83,9 @@ export default function Navbar() {
             type="search"
             placeholder="Search threads…"
             className="w-full bg-muted"
+            value={query}
+            onChange={handleSearchChange}
+            onKeyDown={handleKeyDown}
           />
         </div>
         {session ? (
