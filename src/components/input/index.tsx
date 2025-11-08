@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/form";
 import { Control, FieldValues, Path } from "react-hook-form";
 import { Input } from "../ui/input";
+import { Textarea } from "../ui/textarea";
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "../ui/button";
@@ -79,6 +80,58 @@ export const TextInput = <T extends FieldValues>(props: TextInputProps<T>) => {
                 </Button>
               )}
             </div>
+          </FormControl>
+          {description && <FormDescription>{description}</FormDescription>}
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+};
+
+interface TextAreaInputProps<T extends FieldValues> {
+  name: Path<T>;
+  placeholder?: string;
+  control: Control<T>;
+  description?: string;
+  label?: string;
+  className?: string;
+  disabled?: boolean;
+  readOnly?: boolean;
+  rows?: number;
+}
+
+export const TextAreaInput = <T extends FieldValues>(
+  props: TextAreaInputProps<T>
+) => {
+  const {
+    name,
+    placeholder,
+    control,
+    description,
+    label,
+    className = "",
+    disabled = false,
+    readOnly = false,
+    rows = 4,
+  } = props;
+
+  return (
+    <FormField
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <FormItem>
+          {label && <FormLabel>{label}</FormLabel>}
+          <FormControl>
+            <Textarea
+              placeholder={placeholder}
+              className={className}
+              rows={rows}
+              {...field}
+              disabled={disabled}
+              readOnly={readOnly}
+            />
           </FormControl>
           {description && <FormDescription>{description}</FormDescription>}
           <FormMessage />

@@ -5,7 +5,7 @@ import { Clock, User } from "lucide-react";
 import { formatDistance } from "date-fns";
 
 interface ThreadCardProps {
-  id: number;
+  id: string;
   title: string;
   author: string;
   createdAt: string;
