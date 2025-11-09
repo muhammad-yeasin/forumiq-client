@@ -50,6 +50,11 @@ export interface GetThreadsParams {
   search?: string;
 }
 
+export interface ThreadSummaryResponse {
+  status: string;
+  data: string;
+}
+
 const threadsApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     createThread: builder.mutation<CreateThreadResponse, CreateThreadRequest>({
@@ -91,6 +96,12 @@ const threadsApi = apiSlice.injectEndpoints({
       }),
       providesTags: (result, error, id) => [{ type: "threads", id }],
     }),
+    getThreadSummaryById: builder.query<ThreadSummaryResponse, string>({
+      query: (id) => ({
+        url: `/ai/summarize-thread/${id}`,
+        method: "GET",
+      }),
+    }),
   }),
 });
 
@@ -100,4 +111,6 @@ export const {
   useCreateThreadMutation,
   useGetThreadsQuery,
   useGetSingleThreadQuery,
+  useGetThreadSummaryByIdQuery,
+  useLazyGetThreadSummaryByIdQuery,
 } = threadsApi;

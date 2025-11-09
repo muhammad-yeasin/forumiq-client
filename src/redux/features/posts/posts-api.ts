@@ -10,6 +10,11 @@ export interface Post {
   content: string;
   createdAt: string;
   updatedAt: string;
+  moderation: {
+    isSpam: boolean;
+    isInappropriate: boolean;
+    reason: string;
+  };
   children: Post[];
 }
 

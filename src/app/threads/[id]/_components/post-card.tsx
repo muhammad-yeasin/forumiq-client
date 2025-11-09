@@ -37,6 +37,13 @@ export default function PostCard({
     }
   };
 
+  const flagged = post.moderation.isSpam || post.moderation.isInappropriate;
+  const flagLabel = post.moderation.isSpam
+    ? "Spam"
+    : post.moderation.isInappropriate
+    ? "Inappropriate"
+    : "";
+
   return (
     <div className={`${depth > 0 ? "ml-8 mt-4" : "mt-4"}`}>
       {/* Visual connector line for nested replies */}
@@ -44,7 +51,11 @@ export default function PostCard({
         <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-border" />
       )}
 
-      <Card className="relative border border-border bg-card p-4">
+      <Card
+        className={`relative bg-card p-4 ${
+          flagged ? "border border-red-300 bg-red-50" : "border border-border"
+        }`}
+      >
         <div className="flex items-start gap-3">
           <Avatar className="h-8 w-8 shrink-0">
             <AvatarFallback className="bg-primary text-primary-foreground text-sm">
@@ -57,6 +68,11 @@ export default function PostCard({
               <span className="font-medium text-sm text-foreground">
                 {username}
               </span>
+              {flagged && (
+                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200">
+                  {flagLabel || "Flagged"}
+                </span>
+              )}
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Clock className="h-3 w-3" />
                 <span>

@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import PostCard from "./_components/post-card";
 import { useSocket } from "@/providers/socket-provider";
 import { env } from "@/config/env";
+import ThreadSummary from "./_components/thread-summary";
 
 export default function ThreadDetailsPage() {
   const params = useParams();
@@ -47,24 +48,8 @@ export default function ThreadDetailsPage() {
     basePosts: Post[],
     rtPosts: Post[]
   ): Post[] => {
+    // Nothing to do
     if (rtPosts.length === 0) return basePosts;
-
-    // Filter out real-time posts that already exist in base posts
-    const filteredRtPosts = rtPosts.filter((rtPost) => {
-      const existsInBase = basePosts.some((p) => {
-        const checkInTree = (post: Post): boolean => {
-          if (post._id === rtPost._id) return true;
-          if (post.children) {
-            return post.children.some(checkInTree);
-          }
-          return false;
-        };
-        return checkInTree(p);
-      });
-      return !existsInBase;
-    });
-
-    if (filteredRtPosts.length === 0) return basePosts;
 
     // Create a deep copy of base posts to avoid mutation
     const result = JSON.parse(JSON.stringify(basePosts)) as Post[];
@@ -81,27 +66,38 @@ export default function ThreadDetailsPage() {
 
     result.forEach(addToMap);
 
-    // Add filtered real-time posts
-    filteredRtPosts.forEach((rtPost) => {
-      if (rtPost.parent) {
-        const parent = postMap.get(rtPost.parent);
-        if (parent) {
-          if (!parent.children) {
-            parent.children = [];
+    // Apply each real-time post either as an update (if it exists)
+    // or as a new post (insert under parent or as root).
+    rtPosts.forEach((rtPost) => {
+      const existing = postMap.get(rtPost._id);
+      if (existing) {
+        // Update selective fields on existing node
+        existing.content = rtPost.content;
+        existing.updatedAt = rtPost.updatedAt;
+        existing.moderation = rtPost.moderation || existing.moderation;
+        // Update user info if provided
+        if (rtPost.user) {
+          existing.user = rtPost.user;
+        }
+      } else {
+        // Insert new post
+        if (rtPost.parent) {
+          const parent = postMap.get(rtPost.parent);
+          if (parent) {
+            if (!parent.children) parent.children = [];
+            const rtPostCopy = { ...rtPost, children: [] };
+            parent.children.push(rtPostCopy);
+            postMap.set(rtPostCopy._id, rtPostCopy);
+          } else {
+            const rtPostCopy = { ...rtPost, children: [] };
+            result.push(rtPostCopy);
+            postMap.set(rtPostCopy._id, rtPostCopy);
           }
-          const rtPostCopy = { ...rtPost, children: [] };
-          parent.children.push(rtPostCopy);
-          postMap.set(rtPostCopy._id, rtPostCopy);
         } else {
           const rtPostCopy = { ...rtPost, children: [] };
           result.push(rtPostCopy);
           postMap.set(rtPostCopy._id, rtPostCopy);
         }
-      } else {
-        // No parent, add as root
-        const rtPostCopy = { ...rtPost, children: [] };
-        result.push(rtPostCopy);
-        postMap.set(rtPostCopy._id, rtPostCopy);
       }
     });
 
@@ -143,9 +139,26 @@ export default function ThreadDetailsPage() {
 
     socket.on("new-post", handleNewPost);
 
+    const handleUpdatedPost = (updatedPost: Post) => {
+      setRealTimePosts((prev) => {
+        // If we already have this post in real-time buffer, replace it
+        const exists = prev.some((p) => p._id === updatedPost._id);
+        if (exists) {
+          return prev.map((p) => (p._id === updatedPost._id ? updatedPost : p));
+        }
+
+        // If not present in real-time buffer, add it so integrateRealTimePosts
+        // can apply the update on top of fetched posts.
+        return [...prev, updatedPost];
+      });
+    };
+
+    socket.on("update-post", handleUpdatedPost);
+
     return () => {
       socket.emit("leave-thread", threadId);
       socket.off("new-post", handleNewPost);
+      socket.off("update-post", handleUpdatedPost);
     };
   }, [socket, threadId, posts]);
 
@@ -243,24 +256,29 @@ export default function ThreadDetailsPage() {
         </div>
       )}
 
-      <Card className="border border-border bg-card p-6 mb-8">
-        <h1 className="text-2xl font-bold text-foreground mb-4">
-          {thread.title}
-        </h1>
+      <Card className="border border-border bg-card p-6 mb-8 relative">
+        <div>
+          <ThreadSummary threadId={threadId} />
+        </div>
 
-        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
-          <div className="flex items-center gap-1.5">
-            <User className="h-4 w-4" />
-            <span>{thread.user?.username || "Anonymous"}</span>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground mb-4">
+            {thread.title}
+          </h1>
+          <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
+            <div className="flex items-center gap-1.5">
+              <User className="h-4 w-4" />
+              <span>{thread.user?.username || "Anonymous"}</span>
+            </div>
 
-          <div className="flex items-center gap-1.5">
-            <Clock className="h-4 w-4" />
-            <span>
-              {formatDistance(new Date(thread.createdAt), new Date(), {
-                addSuffix: true,
-              })}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-4 w-4" />
+              <span>
+                {formatDistance(new Date(thread.createdAt), new Date(), {
+                  addSuffix: true,
+                })}
+              </span>
+            </div>
           </div>
         </div>
 
