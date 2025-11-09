@@ -1,3 +1,4 @@
+import React from "react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -33,7 +34,9 @@ export default function RootLayout({
       >
         <Provider>
           <Wrapper>
-            <Navbar />
+            <React.Suspense fallback={<div />}>
+              <Navbar />
+            </React.Suspense>
             {children}
             <Toaster position="top-center" />
           </Wrapper>
