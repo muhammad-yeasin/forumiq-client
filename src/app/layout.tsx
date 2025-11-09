@@ -32,15 +32,15 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Provider>
-          <Wrapper>
-            <React.Suspense fallback={<div />}>
+        <React.Suspense fallback={<div />}>
+          <Provider>
+            <Wrapper>
               <Navbar />
-            </React.Suspense>
-            {children}
-            <Toaster position="top-center" />
-          </Wrapper>
-        </Provider>
+              {children}
+              <Toaster position="top-center" />
+            </Wrapper>
+          </Provider>
+        </React.Suspense>
       </body>
     </html>
   );
