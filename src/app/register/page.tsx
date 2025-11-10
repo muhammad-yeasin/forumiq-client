@@ -50,7 +50,7 @@ export default function RegisterPage() {
       localStorage.removeItem("redirectUrl");
     }
     try {
-      setIsLoading(false);
+      setIsLoading(true);
       const res = await signup(values).unwrap();
       if (res.status === "success") {
         const res = await signIn("credentials", {
