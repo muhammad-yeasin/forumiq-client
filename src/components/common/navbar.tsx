@@ -61,7 +61,10 @@ export default function Navbar() {
   };
 
   const handleLogout = () => {
-    signOut({ redirect: true, callbackUrl: "/" });
+    signOut({
+      redirect: true,
+      callbackUrl: "https://forumiq.muhammadyeasin.com",
+    });
   };
 
   return (
